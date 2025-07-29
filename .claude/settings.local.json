@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(find:*)",
+      "Bash(mkdir:*)",
+      "Bash(git --version)",
+      "Bash(python:*)"
+    ],
+    "deny": []
+  }
+}
