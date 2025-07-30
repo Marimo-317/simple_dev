@@ -30,4 +30,4 @@ Thumbs.db
 
 # Keep agents directory but exclude sensitive files
 !.claude/agents/
-.claude/agents/.credentials.json
+.claude/agents/.credentials.json__pycache__/
