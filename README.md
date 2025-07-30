@@ -127,7 +127,7 @@ GitHub Issue → AI分析 → 自動実装 → PR作成 → テスト実行 → 
 - 通知・レポート生成
 ```
 
-## 🎛️ スラッシュコマンド (17個)
+## 🎛️ スラッシュコマンド (18個)
 
 ### 🆕 **新・自動化コマンド (8個)**
 
@@ -141,6 +141,12 @@ GitHub Issue → AI分析 → 自動実装 → PR作成 → テスト実行 → 
 | **`/analyze-test-results`** | AI-based テスト分析        | `/analyze-test-results --pr 789`        |
 | **`/auto-merge`**           | 自動マージ判定             | `/auto-merge --pr 101`                  |
 | **`/workflow-status`**      | 自動化状況監視             | `/workflow-status --dashboard`          |
+
+### 🔬 **技術仕様調査コマンド (1個)**
+
+| コマンド         | 機能               | 例                                    |
+| ---------------- | ------------------ | ------------------------------------- |
+| **`/tech-spec`** | 技術仕様調査・評価 | `/tech-spec "React vs Vue vs Svelte"` |
 
 ### 🔧 **既存コマンド (9個)**
 
@@ -230,7 +236,20 @@ cd simple_dev
 /context-prime
 ```
 
-### 2. **自動化Issue作成**
+### 2. **技術仕様調査**
+
+```bash
+# 新技術評価
+/tech-spec React 18
+
+# 技術比較分析
+/tech-spec "React vs Vue vs Svelte"
+
+# マイグレーション計画
+/tech-spec "migrate from Vue 2 to Vue 3"
+```
+
+### 3. **自動化Issue作成**
 
 ```bash
 # AI-powered Issue作成
@@ -240,7 +259,7 @@ cd simple_dev
 /analyze-issue --issue 123
 ```
 
-### 3. **完全自動実装**
+### 4. **完全自動実装**
 
 ```bash
 # End-to-End自動開発 (推奨)
@@ -250,7 +269,7 @@ cd simple_dev
 /auto-implement --issue 123 --skip-approval true
 ```
 
-### 4. **インテリジェントテスト**
+### 5. **インテリジェントテスト**
 
 ```bash
 # AI-based テスト実行・分析
@@ -258,7 +277,7 @@ cd simple_dev
 /analyze-test-results --pr 456
 ```
 
-### 5. **自動マージ**
+### 6. **自動マージ**
 
 ```bash
 # AI判定による自動マージ
@@ -273,13 +292,16 @@ cd simple_dev
 # 1. プロジェクト初期化
 /context-prime
 
-# 2. 要件定義・Issue作成
+# 2. 技術仕様調査・評価
+/tech-spec "Next.js 14 vs Remix" --focus=performance
+
+# 3. 要件定義・Issue作成
 /create-issue --title "New Feature" --complexity medium
 
-# 3. 完全自動実装
+# 4. 完全自動実装
 /full-auto-dev --from-issue 123 --approval-mode auto
 
-# 4. 品質保証・マージ
+# 5. 品質保証・マージ
 # (自動実行 - 人間介入不要)
 ```
 
@@ -293,9 +315,20 @@ cd simple_dev
 /workflow-status --dashboard
 ```
 
+#### **技術選定ワークフロー**
+
+```bash
+# 技術スタック評価
+/tech-spec "MEAN vs MERN vs JAMstack" --include-migration-cost
+/tech-spec "PostgreSQL vs MongoDB" --focus=scalability
+```
+
 #### **セキュリティファースト開発**
 
 ```bash
+# セキュリティ技術評価
+/tech-spec "OAuth2 vs Auth0 vs Firebase Auth" --focus=security
+
 # セキュリティ強化自動化
 /full-auto-dev "Security hardening" --risk-tolerance low
 ```
@@ -303,6 +336,9 @@ cd simple_dev
 #### **パフォーマンス最適化**
 
 ```bash
+# パフォーマンス技術調査
+/tech-spec "Redis vs Memcached" --focus=performance
+
 # 性能改善自動化
 /full-auto-dev "Performance optimization" --include-benchmarks
 ```
@@ -482,6 +518,16 @@ cd simple_dev
 
 ### ❓ **よくある問題**
 
+#### **技術調査結果が不十分**
+
+```bash
+# 詳細分析・追加調査
+/tech-spec "React 18" --sources=extended --include-migration-guide
+
+# セキュリティ特化調査
+/tech-spec "Express.js security" --focus=security --depth=comprehensive
+```
+
 #### **自動化が開始されない**
 
 ```bash
@@ -546,12 +592,14 @@ echo "custom-agent.md" > .claude/agents/project-specialist.md
 - [Claude Code 公式ドキュメント](https://docs.anthropic.com/en/docs/claude-code)
 - [GitHub Actions ワークフロー設定ガイド](.github/workflows/)
 - [エージェント定義リファレンス](.claude/agents/)
+- [技術仕様調査システム](.claude/tech-research/)
 
 ### 🎓 **学習リソース**
 
 - [自動化ベストプラクティス](docs/automation-best-practices.md)
 - [AI-powered 開発手法](docs/ai-development-methodology.md)
 - [品質保証・テスト戦略](docs/quality-assurance-strategy.md)
+- [技術調査ワークフロー活用ガイド](.claude/tech-research/usage-guide.md)
 
 ### 🤝 **コミュニティ**
 
@@ -564,11 +612,11 @@ echo "custom-agent.md" > .claude/agents/project-specialist.md
 ## 🎊 **革新的な開発体験を今すぐ体験**
 
 ```bash
-# 1行でIssue→実装→PR→マージまで完全自動化
-/full-auto-dev "Your amazing feature idea" --approval-mode auto
+# 技術調査から実装まで完全自動化
+/tech-spec "Your technology choice" && /full-auto-dev "Your amazing feature idea" --approval-mode auto
 ```
 
-**この開発環境は、ソフトウェア開発の未来を今、現実にします。** 🚀
+**この開発環境は、技術選定から実装まで、ソフトウェア開発の未来を今、現実にします。** 🚀
 
 ---
 
