@@ -59,8 +59,8 @@ jobs:
           # Use the issue-parser script to analyze the issue
           python .claude/scripts/issue-parser.py \
             --issue-number ${{ steps.extract_issue.outputs.issue_number }} \
-            --format json \
-            --output analysis.json
+            --output-format json \
+            --output-file analysis.json
 
           # Extract key metrics for decision making
           complexity=$(python -c "
