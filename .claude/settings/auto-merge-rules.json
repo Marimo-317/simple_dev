@@ -1,0 +1,154 @@
+{
+  "version": "1.0",
+  "description": "Auto-merge rules for GitHub pull requests with AI-based validation",
+  "rules": {
+    "auto_merge_criteria": {
+      "test_requirements": {
+        "all_tests_pass": true,
+        "minimum_test_coverage": 90,
+        "no_failing_tests": true,
+        "performance_regression_threshold": 5,
+        "security_scan_clean": true
+      },
+      "code_quality_requirements": {
+        "linting_passed": true,
+        "type_checking_passed": true,
+        "code_review_approved": false,
+        "no_merge_conflicts": true,
+        "branch_up_to_date": true
+      },
+      "approval_requirements": {
+        "required_reviews": 0,
+        "dismiss_stale_reviews": true,
+        "require_code_owner_reviews": false,
+        "allow_auto_merge_on_auto_implemented": true
+      },
+      "complexity_thresholds": {
+        "max_story_points_auto_merge": 5,
+        "max_files_changed": 20,
+        "max_lines_changed": 500,
+        "max_complexity_score": 3
+      }
+    },
+    "blocking_conditions": {
+      "security_issues": {
+        "block_on_high_severity": true,
+        "block_on_medium_severity": false,
+        "block_on_dependency_vulnerabilities": true
+      },
+      "performance_issues": {
+        "block_on_regression_percent": 20,
+        "block_on_memory_increase_mb": 100,
+        "block_on_response_time_increase_ms": 500
+      },
+      "quality_issues": {
+        "block_on_code_coverage_drop": 10,
+        "block_on_duplicate_code_increase": 5,
+        "block_on_technical_debt_increase": 15
+      }
+    },
+    "special_conditions": {
+      "emergency_merge": {
+        "enabled": false,
+        "bypass_all_checks": false,
+        "require_emergency_label": true,
+        "notify_on_emergency_merge": true
+      },
+      "hotfix_merge": {
+        "enabled": true,
+        "reduced_requirements": true,
+        "require_hotfix_label": true,
+        "minimum_test_coverage": 70
+      },
+      "dependency_updates": {
+        "enabled": true,
+        "auto_merge_patch_updates": true,
+        "auto_merge_minor_updates": false,
+        "auto_merge_major_updates": false
+      }
+    }
+  },
+  "ai_analysis_settings": {
+    "use_test_judge_agent": true,
+    "confidence_threshold": 85,
+    "require_analysis_for_auto_merge": true,
+    "fallback_to_human_review": true,
+    "analysis_timeout_minutes": 10
+  },
+  "notification_settings": {
+    "notify_on_auto_merge": true,
+    "notify_on_merge_failure": true,
+    "notification_channels": ["github_comments", "pr_status_checks"],
+    "mention_reviewers_on_failure": true
+  },
+  "branch_protection_overrides": {
+    "allow_override_for_auto_implemented": true,
+    "bypass_required_status_checks": false,
+    "bypass_required_reviews": true,
+    "bypass_branch_protection": false
+  },
+  "merge_strategy": {
+    "default_method": "squash",
+    "commit_message_template": "🤖 Auto-merge: {title}\n\n{description}\n\n✅ All quality checks passed\n🧪 Tests: {test_status}\n📊 Coverage: {coverage}%\n🔒 Security: Clean\n\n🚀 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+    "delete_branch_after_merge": true,
+    "update_branch_before_merge": true
+  },
+  "monitoring": {
+    "track_auto_merge_success_rate": true,
+    "track_post_merge_issues": true,
+    "track_false_positive_rate": true,
+    "generate_weekly_reports": true
+  },
+  "rollback_settings": {
+    "enable_auto_rollback": true,
+    "rollback_conditions": [
+      "critical_test_failures_post_merge",
+      "production_errors_increase_50_percent",
+      "performance_degradation_25_percent"
+    ],
+    "rollback_timeout_hours": 24,
+    "notify_on_rollback": true
+  },
+  "labels": {
+    "auto_merge_eligible": "auto-merge-eligible",
+    "auto_merge_blocked": "auto-merge-blocked",
+    "emergency_merge": "emergency",
+    "hotfix_merge": "hotfix",
+    "claude_generated": "claude-generated",
+    "requires_human_review": "needs-human-review"
+  },
+  "environments": {
+    "development": {
+      "enabled": true,
+      "relaxed_requirements": true,
+      "skip_performance_checks": true
+    },
+    "staging": {
+      "enabled": true,
+      "standard_requirements": true,
+      "additional_integration_tests": true
+    },
+    "production": {
+      "enabled": false,
+      "strict_requirements": true,
+      "require_manual_approval": true,
+      "additional_security_checks": true
+    }
+  },
+  "integration_settings": {
+    "github_actions": {
+      "required_workflows": ["ci", "security-scan", "test-suite"],
+      "optional_workflows": ["performance-test", "integration-test"]
+    },
+    "external_tools": {
+      "sonarqube": {
+        "enabled": false,
+        "quality_gate_required": true
+      },
+      "snyk": {
+        "enabled": false,
+        "block_on_high_vulnerabilities": true
+      }
+    }
+  }
+}

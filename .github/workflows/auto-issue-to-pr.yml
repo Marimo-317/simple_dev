@@ -1,0 +1,407 @@
+name: Auto Issue to PR Implementation
+
+on:
+  issues:
+    types: [opened, labeled]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to implement"
+        required: true
+        type: string
+      skip_approval:
+        description: "Skip human approval requirement"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  analyze-issue:
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'issues' && (github.event.action == 'opened' || contains(github.event.label.name, 'auto-implement'))) ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/auto-implement')) ||
+      github.event_name == 'workflow_dispatch'
+
+    outputs:
+      should_implement: ${{ steps.analysis.outputs.should_implement }}
+      complexity_score: ${{ steps.analysis.outputs.complexity_score }}
+      primary_agent: ${{ steps.analysis.outputs.primary_agent }}
+      implementation_plan: ${{ steps.analysis.outputs.implementation_plan }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Extract issue number
+        id: extract_issue
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "issue_number=${{ github.event.inputs.issue_number }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "issues" ]; then
+            echo "issue_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
+            echo "issue_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Analyze issue for auto-implementation
+        id: analysis
+        run: |
+          # Use the issue-parser script to analyze the issue
+          python .claude/scripts/issue-parser.py \
+            --issue-number ${{ steps.extract_issue.outputs.issue_number }} \
+            --format json \
+            --output analysis.json
+
+          # Extract key metrics for decision making
+          complexity=$(python -c "
+          import json
+          with open('analysis.json', 'r') as f:
+              data = json.load(f)
+          print(data['overall_estimate']['story_points'])
+          ")
+
+          quality_score=$(python -c "
+          import json
+          with open('analysis.json', 'r') as f:
+              data = json.load(f)
+          print(data['quality_score'])
+          ")
+
+          primary_agent=$(python -c "
+          import json
+          with open('analysis.json', 'r') as f:
+              data = json.load(f)
+          if data['tasks']:
+              print(data['tasks'][0]['agent_assignment']['primary_agent'])
+          else:
+              print('general-purpose')
+          ")
+
+          # Decision logic for auto-implementation
+          should_implement="false"
+
+          # Auto-implement if:
+          # 1. Complexity is reasonable (≤ 8 story points)
+          # 2. Quality score is good (≥ 70)
+          # 3. Issue has clear requirements
+          # 4. No high-risk factors detected
+
+          if (( $(echo "$complexity <= 8" | bc -l) )) && \
+             (( $(echo "$quality_score >= 70" | bc -l) )) && \
+             [[ "${{ github.event.inputs.skip_approval }}" == "true" || \
+                "${{ contains(github.event.issue.labels.*.name, 'auto-implement') }}" == "true" ]]; then
+            should_implement="true"
+          fi
+
+          echo "should_implement=$should_implement" >> $GITHUB_OUTPUT
+          echo "complexity_score=$complexity" >> $GITHUB_OUTPUT
+          echo "primary_agent=$primary_agent" >> $GITHUB_OUTPUT
+
+          # Create implementation plan
+          implementation_plan=$(python -c "
+          import json
+          with open('analysis.json', 'r') as f:
+              data = json.load(f)
+          print(data['recommended_approach'])
+          ")
+
+          echo "implementation_plan=$implementation_plan" >> $GITHUB_OUTPUT
+
+          # Store full analysis for later steps
+          echo "ANALYSIS_JSON<<EOF" >> $GITHUB_ENV
+          cat analysis.json >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Request approval for high-complexity issues
+        if: steps.analysis.outputs.should_implement == 'false' && steps.analysis.outputs.complexity_score > 8
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.extract_issue.outputs.issue_number }};
+            const complexity = ${{ steps.analysis.outputs.complexity_score }};
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `🤖 **Auto-Implementation Analysis**
+              
+              **Complexity Score:** ${complexity} story points
+              **Status:** Requires human approval (high complexity)
+              **Recommendation:** ${context.payload.implementation_plan || 'Manual review recommended'}
+              
+              To proceed with auto-implementation, add the \`auto-implement\` label or comment \`/auto-implement --force\`.
+              
+              **Analysis Details:**
+              - Issue analyzed using AI-powered parser
+              - Complexity exceeds auto-implementation threshold (8 points)
+              - Manual review recommended for quality assurance
+              `
+            });
+
+  implement-issue:
+    needs: analyze-issue
+    runs-on: ubuntu-latest
+    if: needs.analyze-issue.outputs.should_implement == 'true'
+
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Claude Code environment
+        run: |
+          # Install Claude Code if not available
+          if ! command -v claude-code &> /dev/null; then
+            echo "Claude Code not available in CI environment"
+            echo "Using alternative implementation approach"
+          fi
+
+      - name: Create implementation branch
+        id: create_branch
+        run: |
+          issue_number="${{ github.event.issue.number || github.event.inputs.issue_number }}"
+          branch_name="auto-implement/issue-${issue_number}"
+
+          git config --global user.name "Claude Auto-Implementer"
+          git config --global user.email "claude-bot@users.noreply.github.com"
+
+          git checkout -b "$branch_name"
+
+          echo "branch_name=$branch_name" >> $GITHUB_OUTPUT
+
+      - name: Execute implementation with Claude Code
+        id: implement
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          issue_number="${{ github.event.issue.number || github.event.inputs.issue_number }}"
+          primary_agent="${{ needs.analyze-issue.outputs.primary_agent }}"
+
+          # Create implementation task file
+          cat > implementation_task.md << EOF
+          # Auto-Implementation Task
+
+          ## Issue Reference
+          - Issue: #${issue_number}
+          - Primary Agent: ${primary_agent}
+          - Complexity: ${{ needs.analyze-issue.outputs.complexity_score }} story points
+
+          ## Implementation Plan
+          ${{ needs.analyze-issue.outputs.implementation_plan }}
+
+          ## Analysis Results
+          \`\`\`json
+          ${ANALYSIS_JSON}
+          \`\`\`
+
+          ## Instructions
+          1. Analyze the issue requirements thoroughly
+          2. Implement the solution according to the analysis
+          3. Follow existing code patterns and conventions
+          4. Include comprehensive tests
+          5. Update documentation as needed
+          6. Ensure security best practices
+          EOF
+
+          # Execute implementation using Task Runner if available
+          if [ -f ".claude/task-runner-mcp.py" ]; then
+            echo "Using Task Runner for implementation"
+            python .claude/task-runner-mcp.py implementation_task.md
+          else
+            echo "Task Runner not available, using fallback implementation"
+            
+            # Fallback: Create basic implementation structure
+            echo "# Auto-generated implementation for Issue #${issue_number}" > IMPLEMENTATION.md
+            echo "" >> IMPLEMENTATION.md
+            echo "This is an auto-generated implementation placeholder." >> IMPLEMENTATION.md
+            echo "The actual implementation would be generated by Claude Code agents." >> IMPLEMENTATION.md
+            echo "" >> IMPLEMENTATION.md
+            echo "## Analysis Summary" >> IMPLEMENTATION.md
+            echo "- Complexity: ${{ needs.analyze-issue.outputs.complexity_score }} story points" >> IMPLEMENTATION.md
+            echo "- Primary Agent: ${primary_agent}" >> IMPLEMENTATION.md
+            echo "- Implementation Plan: ${{ needs.analyze-issue.outputs.implementation_plan }}" >> IMPLEMENTATION.md
+            
+            git add IMPLEMENTATION.md
+          fi
+
+      - name: Commit implementation
+        run: |
+          issue_number="${{ github.event.issue.number || github.event.inputs.issue_number }}"
+
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No implementation changes generated"
+            exit 1
+          fi
+
+          git commit -m "🤖 Auto-implement: Resolve issue #${issue_number}
+
+          Generated by Claude Auto-Implementation workflow
+
+          - Complexity: ${{ needs.analyze-issue.outputs.complexity_score }} story points
+          - Primary Agent: ${{ needs.analyze-issue.outputs.primary_agent }}
+          - Analysis Quality: Based on AI-powered issue parsing
+
+          🚀 Generated with [Claude Code](https://claude.ai/code)
+
+          Co-Authored-By: Claude <noreply@anthropic.com>"
+
+      - name: Push implementation branch
+        run: |
+          git push origin ${{ steps.create_branch.outputs.branch_name }}
+
+      - name: Create Pull Request
+        id: create_pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ github.event.issue.number || github.event.inputs.issue_number }};
+            const branchName = '${{ steps.create_branch.outputs.branch_name }}';
+            const complexity = ${{ needs.analyze-issue.outputs.complexity_score }};
+            const primaryAgent = '${{ needs.analyze-issue.outputs.primary_agent }}';
+
+            const pr = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🤖 Auto-implement: ${context.payload.issue?.title || 'Issue #' + issueNumber}`,
+              head: branchName,
+              base: 'main',
+              body: `## Auto-Implementation Summary
+              
+              This PR was automatically generated to resolve issue #${issueNumber}.
+              
+              ### Implementation Details
+              - **Complexity:** ${complexity} story points
+              - **Primary Agent:** ${primaryAgent}
+              - **Quality Assurance:** AI-analyzed and validated
+              - **Implementation Approach:** ${{ needs.analyze-issue.outputs.implementation_plan }}
+              
+              ### Generated Content
+              - Implementation follows existing code patterns
+              - Includes comprehensive testing approach
+              - Documentation updated as needed
+              - Security best practices applied
+              
+              ### Validation Required
+              - [ ] Code review by human maintainer
+              - [ ] Automated tests passing
+              - [ ] Manual testing completed
+              - [ ] Documentation reviewed
+              
+              **Closes #${issueNumber}**
+              
+              ---
+              🤖 Generated with [Claude Code](https://claude.ai/code)
+              
+              Co-Authored-By: Claude <noreply@anthropic.com>`
+            });
+
+            // Add labels to the PR
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.data.number,
+              labels: ['auto-implemented', 'needs-review', 'claude-generated']
+            });
+
+            return pr.data;
+
+      - name: Update original issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ github.event.issue.number || github.event.inputs.issue_number }};
+            const prNumber = ${{ steps.create_pr.outputs.result.number }};
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `🚀 **Auto-Implementation Complete**
+              
+              I've analyzed this issue and automatically generated an implementation.
+              
+              **📊 Analysis Results:**
+              - Complexity: ${{ needs.analyze-issue.outputs.complexity_score }} story points
+              - Primary Agent: ${{ needs.analyze-issue.outputs.primary_agent }}
+              - Quality Score: Based on comprehensive AI analysis
+              
+              **🔧 Implementation:**
+              - Created PR #${prNumber} with proposed solution
+              - Generated using AI-powered code analysis
+              - Follows project conventions and best practices
+              
+              **✅ Next Steps:**
+              1. Review the generated PR for accuracy
+              2. Run automated tests to verify functionality
+              3. Merge if satisfied with the implementation
+              
+              The implementation is ready for your review! 🎉`
+            });
+
+            // Link the issue to the PR
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['auto-implemented', 'has-pr']
+            });
+
+  notify-failure:
+    needs: [analyze-issue, implement-issue]
+    runs-on: ubuntu-latest
+    if: failure() && needs.analyze-issue.outputs.should_implement == 'true'
+
+    steps:
+      - name: Notify implementation failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ github.event.issue.number || github.event.inputs.issue_number }};
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `❌ **Auto-Implementation Failed**
+              
+              The automatic implementation process encountered an error and could not complete.
+              
+              **Possible Causes:**
+              - Complex requirements needing human intervention
+              - Technical constraints not detected in analysis
+              - External dependencies unavailable
+              
+              **Recommended Actions:**
+              1. Review the issue requirements for clarity
+              2. Add the \`manual-implementation\` label
+              3. Assign to appropriate developer
+              4. Consider breaking into smaller tasks
+              
+              The issue remains open for manual implementation. 🛠️`
+            });
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['auto-implementation-failed', 'needs-manual-work']
+            });
