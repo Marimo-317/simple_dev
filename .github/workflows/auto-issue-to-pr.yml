@@ -97,15 +97,13 @@ jobs:
           should_implement="false"
 
           # Auto-implement if:
-          # 1. Complexity is reasonable (≤ 8 story points)
-          # 2. Quality score is good (≥ 70)
-          # 3. Issue has clear requirements
-          # 4. No high-risk factors detected
+          # 1. Skip approval is explicitly requested, OR
+          # 2. (Complexity ≤ 8 AND Quality ≥ 70 AND auto-implement label exists)
 
-          if (( $(echo "$complexity <= 8" | bc -l) )) && \
-             (( $(echo "$quality_score >= 70" | bc -l) )) && \
-             [[ "${{ github.event.inputs.skip_approval }}" == "true" || \
-                "${{ contains(github.event.issue.labels.*.name, 'auto-implement') }}" == "true" ]]; then
+          if [[ "${{ github.event.inputs.skip_approval }}" == "true" ]] || \
+             ( (( $(echo "$complexity <= 8" | bc -l) )) && \
+               (( $(echo "$quality_score >= 70" | bc -l) )) && \
+               [[ "${{ contains(github.event.issue.labels.*.name, 'auto-implement') }}" == "true" ]] ); then
             should_implement="true"
           fi
 
