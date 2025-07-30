@@ -119,10 +119,8 @@ jobs:
 
           echo "implementation_plan=$implementation_plan" >> $GITHUB_OUTPUT
 
-          # Store full analysis for later steps
-          echo "ANALYSIS_JSON<<EOF" >> $GITHUB_ENV
-          cat analysis.json >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          # Store analysis file as artifact for later steps
+          echo "Analysis file saved as analysis.json for subsequent workflow steps"
 
       - name: Request approval for high-complexity issues
         if: steps.analysis.outputs.should_implement == 'false' && steps.analysis.outputs.complexity_score > 8
