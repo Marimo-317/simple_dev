@@ -55,6 +55,8 @@ jobs:
 
       - name: Analyze issue for auto-implementation
         id: analysis
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           # Use the issue-parser script to analyze the issue
           python .claude/scripts/issue-parser.py \
